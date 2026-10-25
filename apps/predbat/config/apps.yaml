@@ -16,6 +16,8 @@ pred_bat:
   timezone: Europe/London
 
   # Currency, symbol for main currency and second symbol for 1/100s e.g. $ c, £ p or € c
+  # Optional calibration of built-in money defaults; never converts tariff prices.
+  # currency_scale: 1.0
   currency_symbols:
    - '£'
    - 'p'
