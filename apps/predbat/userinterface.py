@@ -17,6 +17,8 @@ input_numbers, and select inputs, and routes HA events (state changes,
 service calls) to the appropriate handlers.
 """
 
+from currency import MONETARY_UNITS, currency_config_items, validate_currency_scale
+
 import os
 from datetime import timedelta
 from utils import get_override_time_from_string, mask_secret_args, is_debug_excluded_key, export_limits_from_stored, export_limits_to_stored, is_secret_key, SECRET_MASK, RepeatLogGate
@@ -1156,11 +1158,29 @@ class UserInterface:
                 value = None
         return True, value
 
+    def configure_currency(self):
+        """Refresh monetary defaults from canonical definitions without changing values.
+
+        Rebuild metadata on every refresh: neither a previous scale nor a legacy
+        range-extension plugin is a source for the next set of limits.
+        """
+        self.currency_scale = validate_currency_scale(self.args.get("currency_scale", 1.0))
+        from config import CONFIG_ITEMS
+
+        canonical = {item["name"]: item for item in currency_config_items(CONFIG_ITEMS, self.currency_scale)}
+        for item in self.CONFIG_ITEMS:
+            base = canonical.get(item["name"])
+            if base and base.get("unit") in MONETARY_UNITS:
+                for field in ("min", "max", "step", "default"):
+                    if field in base:
+                        item[field] = base[field]
+
     def load_user_config(self, quiet=True, register=False, load_config=False):
         """
         Load config from HA
         """
 
+        self.configure_currency()
         self.config_index = {}
         self.log("Refreshing Predbat configuration")
 
@@ -1207,7 +1227,10 @@ class UserInterface:
             ha_value = None
 
             if not enabled:
-                item["value"] = None
+                if item.get("unit") not in MONETARY_UNITS:
+                    item["value"] = None
+                else:
+                    item.setdefault("value", None)
 
                 # Remove the state if the entity still exists
                 ha_value = self.get_state_wrapper(entity)
@@ -1255,6 +1278,14 @@ class UserInterface:
                     # of, say, 30 passes straight through unclamped).
                     item_min = item.get("min", None)
                     item_max = item.get("max", None)
+                    if item.get("unit") in MONETARY_UNITS:
+                        # A scale change must never destroy an explicit/HA/persisted value.
+                        # Widen the advertised slider for this value, with a visible warning.
+                        if (item_min is not None and ha_value < item_min) or (item_max is not None and ha_value > item_max):
+                            self.record_status("Warn: Preserving monetary config {}={} outside calibrated range [{}, {}]; extending range".format(name, ha_value, item_min, item_max), had_errors=True)
+                            item["min"] = min(item_min, ha_value)
+                            item["max"] = max(item_max, ha_value)
+                            item_min, item_max = item["min"], item["max"]
                     if item_min is not None and ha_value < item_min:
                         self.record_status("Warn: Config item {} value {} is below the minimum {} - clamping to {}".format(name, ha_value, item_min, item_min), had_errors=True)
                         ha_value = float(item_min)

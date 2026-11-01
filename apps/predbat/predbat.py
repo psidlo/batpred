@@ -17,7 +17,6 @@ planning, execution, output publishing, and user interface capabilities into a
 single orchestrator that runs the main prediction/optimisation loop every 5 minutes.
 """
 
-import copy
 import json
 import os
 import sys
@@ -80,6 +79,7 @@ from const import (
     DEBUG_ENABLE_MAX_HOURS,
 )
 from config import APPS_SCHEMA, CONFIG_ITEMS
+from currency import currency_config_items, validate_currency_scale
 import debug_history
 from utils import (
     strptime_aware,
@@ -337,7 +337,8 @@ class PredBat(hass.Hass, Octopus, Energidataservice, Stromligning, Fetch, Plan, 
         self.num_cars = 0
         self.fatal_error = False
         self.components = None
-        self.CONFIG_ITEMS = copy.deepcopy(CONFIG_ITEMS)
+        self.currency_scale = validate_currency_scale(self.args.get("currency_scale", 1.0))
+        self.CONFIG_ITEMS = currency_config_items(CONFIG_ITEMS, self.currency_scale)
         self.comparison = None
         self.predheat = None
         self.predbat_mode = "Monitor"

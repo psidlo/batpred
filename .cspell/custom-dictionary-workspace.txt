@@ -414,6 +414,7 @@ mdi
 mdlrc
 measurand
 measurands
+mergeable
 Meteo
 Meteoalarm
 meterpoint
@@ -647,6 +648,7 @@ slugify
 slugifying
 smartflex
 snakeviz
+snapshotted
 snprintf
 socb
 socketloop

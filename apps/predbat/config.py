@@ -2668,6 +2668,7 @@ SOLAX_SOLIS_MODES_FB00 = {
 # Apps.yaml validation schema
 APPS_SCHEMA = {
     "currency_symbols": {"type": "string|string_list"},
+    "currency_scale": {"type": "float", "default": 1.0},
     "db_enable": {"type": "boolean"},
     "db_days": {"type": "integer"},
     "db_mirror_ha": {"type": "boolean"},
