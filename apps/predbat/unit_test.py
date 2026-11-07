@@ -23,6 +23,7 @@ if hasattr(sys.stderr, "reconfigure"):
 
 from predbat import PredBat
 from tests.test_infra import FIXTURE_MINUTES_NOW, TestHAInterface, set_plot_enabled
+from tests.test_currency_scale import run_currency_scale_tests, test_currency_debug_plan
 from tests.test_compute_metric import run_compute_metric_tests
 from tests.test_pv90 import run_pv90_tests
 from tests.test_performance_tweaks import run_performance_tweaks_tests
@@ -36,6 +37,7 @@ from tests.test_kernel_parity import run_kernel_parity_tests, run_model_kernel_t
 from tests.test_prediction_batch import run_prediction_batch_tests
 from tests.test_kernel_static_cache import run_kernel_static_cache_tests
 from tests.test_execute import run_execute_tests
+from tests.test_inverter_rate_no_entity import run_inverter_rate_no_entity_tests, run_inverter_rate_no_entity_execute_tests, run_inverter_rate_no_entity_execute_10kw_tests
 from tests.test_execute_multi_inverter_status import test_multi_inverter_status
 from tests.test_load_car_energy import test_load_car_energy_warns_when_configured_entity_has_no_data
 from tests.test_predheat import test_predheat, test_predheat_smart_thermostat, test_predheat_optional_energy_history
@@ -503,6 +505,8 @@ def main():
     TEST_REGISTRY = [
         ("secrets", run_secrets_tests, "Secrets loading tests", False),
         ("env_config", run_env_config_tests, "Per-instance PREDBAT_APPS_FILE / PREDBAT_SECRETS_FILE config tests", False),
+        ("currency_scale", run_currency_scale_tests, "Currency calibration, persistence, planning and kernel parity", False),
+        ("currency_debug_plan", test_currency_debug_plan, "Full debug-plan monetary equivalence and candidate benchmark", False),
         ("export_encoding", run_export_encoding_tests, "Packed export limit encoding accessor tests", False),
         ("export_more_solar_warning", run_export_more_solar_warning_tests, "export_more_solar / set_export_freeze dependency warning tests", False),
         ("perf", run_perf_test, "Performance tests", False),
@@ -515,6 +519,9 @@ def main():
         ("kernel_parity", run_kernel_parity_tests, "C++ prediction kernel vs Python engine parity tests", False),
         ("prediction_batch", run_prediction_batch_tests, "Batched prediction fan-out tests", False),
         ("inverter", run_inverter_tests, "Inverter tests", False),
+        ("inverter_rate_no_entity", run_inverter_rate_no_entity_tests, "Rate read-back for an inverter with no rate entity, sent as {power} (#3311)", False),
+        ("inverter_rate_no_entity_execute", run_inverter_rate_no_entity_execute_tests, "execute_plan() sends this cycle's rate as {power} to a script-driven inverter (#3311, #5252)", False),
+        ("inverter_rate_no_entity_execute_10kw", run_inverter_rate_no_entity_execute_10kw_tests, "As inverter_rate_no_entity_execute at 10kW: a low power charge after an export is not held at 0", False),
         ("execute", run_execute_tests, "Execute tests", False),
         ("multi_inverter_status", test_multi_inverter_status, "Multi-inverter headline status resolution tests (#4446)", False),
         ("load_car_energy", test_load_car_energy_warns_when_configured_entity_has_no_data, "car_charging_energy configured-but-empty warning tests (#4458 follow-up)", False),

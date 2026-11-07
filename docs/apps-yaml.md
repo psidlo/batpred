@@ -314,6 +314,77 @@ Sets your symbol to use for your main currency e.g. £, € or $ and for 1/100th
     - 'p'
 ```
 
+### currency_scale
+
+Optional calibration of Predbat's built-in monetary constants and default settings.
+The default is `1.0`, which preserves the existing penny-based calibration.
+Use a **positive finite number**: zero, negative values, booleans, strings, NaN and
+infinity are configuration errors.
+
+For example, to express tariffs in Czech minor units with a calibration of about
+29 local minor units per British penny:
+
+```yaml
+  currency_symbols:
+    - 'Kč'
+    - 'h'
+  currency_scale: 29.0
+```
+
+This is not an exchange-rate service or a conversion of incoming prices. A tariff
+price of **363.894 h/kWh remains 363.894 h/kWh**. `currency_symbols` controls labels
+only. The conversion between a major unit and its hundredth remains 100.
+Provider APIs keep their documented units; do not mix GBP provider prices and
+local-currency prices in one plan expecting `currency_scale` to convert them.
+The Tesla/Teslemetry tariff payload still assumes GBP; setting this option does
+not enable a CZK tariff payload. Annual economic studies also need reference
+tariffs and installation costs in a consistent currency. See the
+[currency audit](currency-scale-audit.md#review-boundaries-and-remaining-uk-assumptions).
+
+The calibration multiplies fixed monetary planner margins and the built-in
+monetary defaults, slider limits and slider steps. For example, on a new
+installation the `metric_min_improvement_plan` default becomes `2 * 29 = 58` and
+the export improvement default becomes `0.1 * 29 = 2.9`. Price grouping and
+algorithmic monetary rounding use the same calibration, so finer local units do
+not create extra candidate price bands. Energy, power, SoC, time, efficiencies,
+percentages and dimensionless weights are unchanged.
+
+#### Existing settings and changing calibration
+
+Existing values are **already in local minor units** and are never multiplied,
+including values that happen to equal an old default. The existing source
+priority is retained: an in-memory value (or JSON value explicitly loaded at
+startup), then restored HA state/history, then the apps.yaml default, then the
+built-in default. Monetary settings disabled by an expert-mode or feature switch
+retain their saved values, although the disabled feature continues to use its
+normal default behaviour. Resetting an instance clears its in-memory values;
+startup restores saved configuration through the normal persistence path.
+
+Changing the calibration recalculates built-in defaults and slider metadata from
+the original definitions. It does not reinterpret historical costs, saved values
+or previously entered tariffs. If a retained value falls outside the new slider
+range, Predbat warns and widens that range to include the value rather than
+silently clipping it. Review your monetary settings after changing calibration;
+use the normal restore-default action when you intentionally want new defaults.
+Reloading repeatedly or running multiple instances never compounds calibration.
+
+#### Migrating from a currency limits plugin
+
+Before enabling native calibration, **disable and remove
+`currency_limits_plugin.py`**, then restart Predbat. Native support now handles
+all monetary slider ranges, defaults and steps; leaving a plugin to multiply
+ranges again can produce a double expansion. A configuration refresh rebuilds
+native monetary metadata from canonical definitions rather than using the
+plugin's expanded ranges as a baseline, but a plugin that runs afterwards can
+still overwrite them.
+
+Keep existing locally calibrated values as entered. For example, an existing
+plan threshold of 58, export threshold of 50 or swap threshold of -7.25 remains
+exactly that value; do not multiply it again. These are examples of preserved
+user values, not recommended product defaults. Check the published limits and
+steps after restart. See the [currency calibration audit](currency-scale-audit.md)
+for the implementation boundaries and regression coverage.
+
 ### template
 
 Initially set to `true`, this is used to stop Predbat from operating until you have finished configuring your `apps.yaml`.
