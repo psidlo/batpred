@@ -416,6 +416,7 @@ mdi
 mdlrc
 measurand
 measurands
+mergeable
 Meteo
 Meteoalarm
 meterpoint
@@ -560,6 +561,7 @@ pseudonymisation
 pseudonymise
 pseudonymised
 pseudonymises
+psidlo
 psum
 pthread
 puback
@@ -653,6 +655,7 @@ slugify
 slugifying
 smartflex
 snakeviz
+snapshotted
 snprintf
 socb
 socketloop

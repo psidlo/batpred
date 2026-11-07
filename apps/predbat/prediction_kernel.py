@@ -20,6 +20,8 @@ PK_PARITY_REVISION in the .cpp must both be bumped so a stale binary is
 rejected at load time rather than producing divergent results.
 """
 
+from currency import round_currency
+
 import array
 import ctypes
 import struct
@@ -717,7 +719,7 @@ def build_static_context_arrays(pred, n_steps, minutes_now, num_cars):
         temp_discharge_cap.append(caps[1])
         carbon.append(pred.carbon_intensity.get(minute, 0) if pred.carbon_intensity else 0)
         # Gas rate pre-scaled by iboost_gas_scale - mirrors prediction.py:719/725
-        gas_rate.append((pred.rate_gas.get(minute_absolute, 99) * pred.iboost_gas_scale) if pred.rate_gas else 0)
+        gas_rate.append((pred.rate_gas.get(minute_absolute, 99 * getattr(pred, "currency_scale", 1.0)) * pred.iboost_gas_scale) if pred.rate_gas else 0)
         iboost_plan_load.append(in_iboost_slot(minute_absolute, pred.iboost_plan) if pred.iboost_plan else 0)
         if num_cars > 0:
             car_load, car_rate_slot = in_car_slot(minute_absolute, num_cars, pred.car_charging_slots)
@@ -906,7 +908,7 @@ def kernel_result_tuple(pred, result, predict_soc):
     iboost_next = result.iboost_next if pred.iboost_enable else pred.iboost_next
 
     return (
-        round(result.final_metric, 4),
+        round_currency(result.final_metric, getattr(pred, "currency_scale", 1.0)),
         round(result.import_kwh_battery, 4),
         round(result.import_kwh_house, 4),
         round(result.export_kwh, 4),
@@ -914,7 +916,7 @@ def kernel_result_tuple(pred, result, predict_soc):
         round(result.final_soc, 4),
         result.soc_min_minute,
         round(result.battery_cycle, 4),
-        round(result.metric_keep, 4),
+        round_currency(result.metric_keep, getattr(pred, "currency_scale", 1.0)),
         round(result.final_iboost, 4),
         round(result.final_carbon_g, 4),
         predict_soc,
