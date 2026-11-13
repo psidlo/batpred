@@ -405,6 +405,73 @@ def test_currency_saved_scenarios():
                 assert all(math.isclose(value, reference[0][minute], abs_tol=1e-12) for minute, value in metrics.items()), (save, scale, metrics, reference[0])
 
 
+
+def test_currency_manual_soc_target_floor():
+    """Backport #6140 with its 1 minor-unit keep floor calibrated for manual SoC boundaries."""
+    for ceiling in (False, True):
+        reference = None
+        for scale in (1, 29, 0.25):
+            base = configured_predbat(scale)
+            reset_inverter(base)
+            base.minutes_now = 0
+            base.forecast_minutes = 60
+            base.soc_max = 10.0
+            base.soc_kw = 8.0 if ceiling else 2.0
+            base.reserve = 0.0
+            base.best_soc_keep = 0.0
+            base.best_soc_keep_weight = 1.0
+            base.cost_today_sofar = 0.0
+            base.debug_enable = False
+            base.all_active_keep = {} if ceiling else {minute: 50.0 for minute in range(60)}
+            base.all_active_keep_max = {minute: 50.0 for minute in range(60)} if ceiling else {}
+            pv = {minute: 0.0 for minute in range(0, 60, 5)}
+            load = dict(pv)
+            penalty = []
+            for rate in (0.0, -5.0, 10.0):
+                reset_rates(base, rate * scale, rate * scale)
+                base.prediction_kernel_enable = False
+                prediction = Prediction(base, pv, pv, load, load)
+                actual = prediction.run_prediction([], [], [], [], PV_SCENARIO_NOMINAL, 60, cache=False)[8]
+                penalty.append(actual / scale)
+                # This exercises the same manual-SoC scenario in native C++, including the
+                # single/batch-shared result shaping. Requires a freshly rebuilt ABI 12 binary.
+                assert not dual_run(
+                    "currency_manual_soc_{}_{}_{}".format("max" if ceiling else "min", scale, rate),
+                    base, pv, pv, load, load, [], [], [], [], PV_SCENARIO_NOMINAL, 60
+                )
+            assert penalty[0] > 0, (scale, ceiling, penalty)
+            assert abs(penalty[0] - penalty[1]) < 0.00025, (scale, ceiling, penalty)
+            assert abs(penalty[2] - penalty[0] * 10) < 0.00025, (scale, ceiling, penalty)
+            if reference is None:
+                reference = penalty
+            else:
+                assert all(abs(a - b) < 0.00025 for a, b in zip(penalty, reference)), (scale, ceiling, penalty, reference)
+
+            # Plain best_soc_keep remains rate-weighted; no manual/alert floor means no clamp.
+            if not ceiling:
+                base.all_active_keep = {}
+                base.best_soc_keep = 5.0
+                reset_rates(base, 0.0, 0.0)
+                base.prediction_kernel_enable = False
+                prediction = Prediction(base, pv, pv, load, load)
+                assert prediction.run_prediction([], [], [], [], PV_SCENARIO_NOMINAL, 60, cache=False)[8] == 0
+
+
+def test_currency_v9710_kernel_rounding():
+    """Regression: fast 4dp pre-rounding must not precede calibration of monetary results."""
+    from prediction_kernel import PkResult, kernel_result_tuple
+
+    # 0.00144999 is just below the 29-haléř scale's 4dp rounding midpoint:
+    # first rounding it to 4dp would cross the midpoint and change the score.
+    for scale in (1, 29, 0.25):
+        pred = SimpleNamespace(currency_scale=scale, car_charging_soc_next=[], num_cars=0, iboost_enable=False, iboost_next=0)
+        result = PkResult()
+        result.final_metric = 0.00144999 * scale / 29
+        result.metric_keep = result.final_metric
+        returned = kernel_result_tuple(pred, result, {})
+        expected = round_currency(result.final_metric, scale)
+        assert returned[0] == expected and returned[8] == expected, (scale, returned[:9], expected)
+
 def run_currency_scale_tests(my_predbat):
     """Run calibration tests through Predbat's TEST_REGISTRY contract."""
     del my_predbat
@@ -417,6 +484,8 @@ def run_currency_scale_tests(my_predbat):
     test_currency_merge_and_compare()
     test_currency_v960_boundaries()
     test_currency_saved_scenarios()
+    test_currency_manual_soc_target_floor()
+    test_currency_v9710_kernel_rounding()
     return False
 
 
