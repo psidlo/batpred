@@ -3,7 +3,6 @@
 import copy
 import math
 
-
 MONETARY_UNITS = frozenset(("p", "p/kWh", "p/kg", "£", "£/kWh"))
 
 

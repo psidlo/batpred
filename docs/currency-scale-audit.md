@@ -1,3 +1,4 @@
+<!-- cspell:words psidlo haléře -->
 # Currency calibration audit
 
 `currency_scale` is a calibration of the monetary heuristics in Predbat, not an
