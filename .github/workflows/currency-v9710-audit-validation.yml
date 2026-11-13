@@ -33,7 +33,7 @@ jobs:
           PREDBAT_KERNEL_REQUIRED: "1"
         run: |
           cd coverage
-          python ../apps/predbat/unit_test.py --test currency_scale --test currency_debug_plan --test kernel_parity --test manual_soc --test manual_soc_max --test compute_metric
+          python ../apps/predbat/unit_test.py --test currency_scale --test currency_debug_plan --test kernel_parity --test manual_soc --test manual_soc_max --test compute_metric --test inverter_rate_no_entity --test execute --test inverter
       - uses: mlugg/setup-zig@v2
         with:
           version: 0.16.0
