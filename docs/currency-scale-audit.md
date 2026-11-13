@@ -171,6 +171,24 @@ updates disabled during the experiment. Retain a backup before updating;
 the previous calibrated branch remains available for rollback. This port does
 not change production configuration or install itself into Home Assistant.
 
+## Experimental audit follow-up on top of v9.7.10
+
+The separate `feature/currency-scale-v9.7.10-audit-fixes` branch carries a **targeted backport** of
+upstream #6140, which postdates v9.7.10, without rebasing the full fork on newer main.
+The new `KEEP_TARGET_MIN_RATE=1.0` floor is multiplied by `currency_scale` on
+both manual/alert SoC floor penalties and manual SoC maximum penalties; plain
+`best_soc_keep` remains rate-weighted. The ongoing-charge preference in v9.7.10
+was already calibrated (`0.5 * currency_scale`) and needs no source change.
+
+ABI 12 adds `currency_scale` to the Python/C++ context. At scale 1 the native
+kernel retains v9.7.10's `round4_fast` output, while at other scales the two
+monetary results cross the native boundary *unrounded* and are rounded exactly
+once in `kernel_result_tuple()` (shared by single and batch predictions). The
+parity revision is 21, distinct from upstream #6140's uncalibrated parity 20.
+Existing ABI 11 binaries are intentionally refused. **Do not deploy this branch
+until rebuilt native binaries and the entire currency/kernel regression suite
+have been verified.** This is experimental source code, not a released kernel.
+
 ## v9.7.10 currency-only port
 
 This branch is based on the exact upstream [Predbat v9.7.10](https://github.com/springfall2008/batpred/releases/tag/v9.7.10) commit `54a8cbb2b8bf66fd1005053cd89d6c80725c2801`.
