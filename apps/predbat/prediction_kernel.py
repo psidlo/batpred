@@ -34,8 +34,8 @@ from const import PREDICT_STEP, PREDBAT_MAX_CARS, EXPORT_MODE_TARGET, FULL_EXPOR
 from utils import get_curve_value, find_battery_temperature_cap, in_car_slot, in_iboost_slot
 
 # Expected ABI/parity revisions of the shared library (see prediction_kernel.cpp)
-KERNEL_ABI_VERSION = 11
-KERNEL_PARITY_REVISION = 19
+KERNEL_ABI_VERSION = 12
+KERNEL_PARITY_REVISION = 21
 
 # Maximum number of cars supported by the kernel (PK_MAX_CARS in prediction_kernel.cpp)
 KERNEL_MAX_CARS = PREDBAT_MAX_CARS
@@ -140,6 +140,7 @@ class PkContext(ctypes.Structure):
         ("iboost_on_export", ctypes.c_int32),
         ("has_rate_gas", ctypes.c_int32),
         ("has_iboost_plan", ctypes.c_int32),
+        ("currency_scale", ctypes.c_double),  # ABI 12: keep SoC penalties and monetary rounding calibrated
     ]
 
 
@@ -898,6 +899,7 @@ def create_kernel_context(pred, static_cache=None):
         ctx.iboost_on_export = 1 if pred.iboost_on_export else 0
         ctx.has_rate_gas = 1 if pred.rate_gas else 0
         ctx.has_iboost_plan = 1 if pred.iboost_plan else 0
+        ctx.currency_scale = getattr(pred, "currency_scale", 1.0)
 
         handle = lib.pk_context_create(ctypes.byref(ctx))
         if handle:
@@ -925,11 +927,10 @@ def kernel_result_tuple(pred, result, predict_soc):
 
     Shared by the single-scenario and batch paths - mirrors prediction.py:626-628, 1266-1284.
 
-    The ten scalar fields arrive already rounded to 4dp (the kernel's round4_fast, ABI 11), so they
-    are copied as they are. round(x, 4) on each was most of what converting a result cost - about
-    1.5us of the 1.7us per simulation, paid on the calling thread for every job in a batch. The kernel
-    rounds the scaled value rather than the exact binary one, so a field can sit one unit in the 4th
-    decimal place away from what round(x, 4) gives; test_kernel_parity allows for exactly that.
+    At currency_scale=1 all ten scalar fields arrive rounded to 4dp by round4_fast
+    (the v9.7.10 ABI 11 behaviour, preserved by ABI 12). At non-unit scales, the
+    two monetary results arrive unrounded and are rounded once in calibrated minor
+    units here. Single and batch paths share this function.
     """
     car_charging_soc_next = pred.car_charging_soc_next[:]
     if result.car_soc_next_valid:
