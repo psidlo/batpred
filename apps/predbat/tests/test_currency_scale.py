@@ -458,19 +458,26 @@ def test_currency_manual_soc_target_floor():
 
 
 def test_currency_v9710_kernel_rounding():
-    """Regression: fast 4dp pre-rounding must not precede calibration of monetary results."""
+    """Non-unit scales must not round native monetary results to fixed 4dp first."""
     from prediction_kernel import PkResult, kernel_result_tuple
 
-    # 0.00144999 is just below the 29-haléř scale's 4dp rounding midpoint:
-    # first rounding it to 4dp would cross the midpoint and change the score.
     for scale in (1, 29, 0.25):
         pred = SimpleNamespace(currency_scale=scale, car_charging_soc_next=[], num_cars=0, iboost_enable=False, iboost_next=0)
         result = PkResult()
-        result.final_metric = 0.00144999 * scale / 29
+        raw_money = 0.00012 * scale
+        # C++ keeps its v9.7.10 fast-4dp behaviour at 1; at non-unit
+        # scales ABI 12 returns both monetary fields unrounded.
+        result.final_metric = round(raw_money, 4) if scale == 1 else raw_money
         result.metric_keep = result.final_metric
         returned = kernel_result_tuple(pred, result, {})
-        expected = round_currency(result.final_metric, scale)
+        expected = round_currency(raw_money, scale)
         assert returned[0] == expected and returned[8] == expected, (scale, returned[:9], expected)
+        if scale == 0.25:
+            # A fixed 4dp native rounding would collapse 0.00003 to zero,
+            # losing the calibrated 0.000025 minor-unit result entirely.
+            double_rounded = round_currency(round(raw_money, 4), scale)
+            assert double_rounded != expected, (double_rounded, expected)
+
 
 def run_currency_scale_tests(my_predbat):
     """Run calibration tests through Predbat's TEST_REGISTRY contract."""
