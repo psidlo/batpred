@@ -77,6 +77,10 @@ CLOUD_ARRAY_MARGIN = 1.2
 # the HA integrations). Treated as "unknown", not as a real 9999 kWp array.
 PV_ARRAY_KWP_UNKNOWN = 9999
 RUN_EVERY = 5
+
+# Monetary floor for manual/alert minimum SoC and manual maximum SoC targets (#6140).
+# It is a built-in heuristic, not a tariff rate: multiply by currency_scale where used.
+KEEP_TARGET_MIN_RATE = 1.0
 # Forecast scenarios simulated by the planner.
 # PV_SCENARIO_PV10 must remain 1 so it stays interchangeable with the legacy pv10 boolean.
 PV_SCENARIO_NOMINAL = 0
