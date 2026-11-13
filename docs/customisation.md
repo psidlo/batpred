@@ -1,5 +1,10 @@
 # Customisation
 
+Monetary settings use your tariff's local minor currency unit (pence for GBP).
+The penny figures below describe the default `currency_scale: 1.0` calibration.
+See [currency_scale](apps-yaml.md#currency_scale) for calibrating built-in defaults
+and migrating existing settings without multiplying their values.
+
 This document describes the Predbat configuration items in Home Assistant that you can modify to customise Predbat to fit your needs.
 
 All of these settings are entities that can be configured directly in Home Assistant (unlike the '[apps.yaml](apps-yaml.md)' configuration items that have to be edited with a file editor).
