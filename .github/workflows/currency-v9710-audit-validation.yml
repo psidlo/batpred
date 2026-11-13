@@ -1,0 +1,64 @@
+name: currency v9.7.10 audit validation
+on:
+  push:
+    branches:
+      - feature/currency-scale-v9.7.10-audit-fixes
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: currency-v9710-audit-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  validate-and-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Build local ABI 12 kernel for regression tests
+        run: bash apps/predbat/build_kernel.sh
+      - name: Run currency and native-kernel regression tests
+        env:
+          PREDBAT_KERNEL_REQUIRED: "1"
+        run: |
+          cd coverage
+          python ../apps/predbat/unit_test.py --test currency_scale --test currency_debug_plan --test kernel_parity --test manual_soc --test manual_soc_max --test compute_metric
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: 0.16.0
+      - name: Cross-build production kernel binaries for every supported platform
+        run: bash apps/predbat/build_kernel_cross.sh
+      - name: Verify cross-built x86_64 binary
+        run: |
+          cd coverage
+          python ../apps/predbat/verify_kernel_binary.py ../apps/predbat/prediction_kernel_lib_x86_64.so
+      - name: Upload production kernel binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: pred-bat-currency-abi12-kernels
+          path: apps/predbat/prediction_kernel_lib_*.so
+          if-no-files-found: error
+          retention-days: 14
+      - name: Commit verified cross-built binaries to this experimental branch
+        if: github.ref == 'refs/heads/feature/currency-scale-v9.7.10-audit-fixes'
+        run: |
+          git add apps/predbat/prediction_kernel_lib_*.so
+          if git diff --cached --quiet; then
+            echo "Kernel binaries are already current."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "chore: rebuild currency ABI 12 prediction kernels [skip ci]"
+            git push origin HEAD:feature/currency-scale-v9.7.10-audit-fixes
+          fi
