@@ -62,7 +62,9 @@
 // ABI 11: the ten scalar PkResult fields from final_metric to final_carbon_g are returned already
 // rounded to 4dp (round4_fast), and Python no longer rounds them. The layout is unchanged, but a binary
 // from before this returns them unrounded, so it must be refused rather than read.
-#define PK_ABI_VERSION 11
+// ABI 12: PkContext appends currency_scale; at non-unit scale the two monetary results
+// are returned unrounded for calibrated rounding on the Python result boundary.
+#define PK_ABI_VERSION 12
 // Parity 14: the explicit (mode, target, power) fields replace the packed double throughout the hot
 // loop (see the ABI 6 note); the floor a target exports to now reads the target field, matching
 // prediction.py.
@@ -77,9 +79,12 @@
 // only credit off metric_keep.
 // Parity 19: in PV10, a dispatch minute of a confirmed run (io_credit set) is no longer assumed gone: the
 // dispatch is kept and the non-car import pays PK_RUN_EVERY minutes of each half hour at the worst-case rate.
-#define PK_PARITY_REVISION 19
+// Parity 21: port #6140's manual/alert SoC monetary keep floor, calibrated by currency_scale.
+// Version 20 was upstream's uncalibrated floor; this branch deliberately uses 21.
+#define PK_PARITY_REVISION 21
 #define PK_MAX_CARS 8
 #define PK_RUN_EVERY 5 // const.py RUN_EVERY
+#define PK_KEEP_TARGET_MIN_RATE 1.0 // const.py KEEP_TARGET_MIN_RATE, then multiplied by context currency_scale
 #define PK_EXPORT_MODE_TARGET 0 // const.py EXPORT_MODE_TARGET
 #define PK_EXPORT_MODE_FREEZE 1 // const.py EXPORT_MODE_FREEZE
 #define PK_EXPORT_MODE_IDLE 2   // const.py EXPORT_MODE_IDLE
@@ -294,6 +299,7 @@ struct PkContext {
     int32_t iboost_on_export;
     int32_t has_rate_gas;
     int32_t has_iboost_plan;
+    double currency_scale; // ABI 12: local minor units per calibrated penny
 };
 
 // Per-scenario inputs; field order MUST match the ctypes Structure in prediction_kernel.py.
@@ -1451,13 +1457,14 @@ static int32_t pk_run_one(const ContextStore *store, const PkScenario *s, PkResu
 
         // Metric keep - prediction.py:1100-1102
         if (best_soc_keep > 0 && soc <= best_soc_keep) {
-            metric_keep += (best_soc_keep - soc) * import_rate * keep_minute_scaling * step / 60.0;
+            const double keep_rate = (alert_keep > 0) ? std::max(import_rate, PK_KEEP_TARGET_MIN_RATE * c->currency_scale) : import_rate;
+            metric_keep += (best_soc_keep - soc) * keep_rate * keep_minute_scaling * step / 60.0;
         }
 
         // Metric keep max - pretend the excess above the ceiling should have been exported instead
         // of held - mirrors prediction.py's best_soc_max block right after the floor.
         if (best_soc_max >= 0 && soc >= best_soc_max) {
-            metric_keep += (soc - best_soc_max) * export_rate * keep_minute_scaling * step / 60.0;
+            metric_keep += (soc - best_soc_max) * std::max(export_rate, PK_KEEP_TARGET_MIN_RATE * c->currency_scale) * keep_minute_scaling * step / 60.0;
         }
 
         // Import/export accounting - prediction.py:1104-1143
@@ -1529,14 +1536,16 @@ static int32_t pk_run_one(const ContextStore *store, const PkScenario *s, PkResu
     }
 
     // Returned rounded to 4dp (see round4_fast and ABI 11), so the Python side copies them as they are
-    out->final_metric = round4_fast(final_metric);
+    // At scale 1 preserve v9.7.10's fast 4dp results. At other scales let the
+    // Python boundary round ONCE in calibrated units, avoiding double-rounding.
+    out->final_metric = (c->currency_scale == 1.0) ? round4_fast(final_metric) : final_metric;
     out->import_kwh_battery = round4_fast(final_import_kwh_battery);
     out->import_kwh_house = round4_fast(final_import_kwh_house);
     out->export_kwh = round4_fast(final_export_kwh);
     out->soc_min = round4_fast(soc_min);
     out->final_soc = round4_fast(final_soc);
     out->battery_cycle = round4_fast(final_battery_cycle);
-    out->metric_keep = round4_fast(final_metric_keep);
+    out->metric_keep = (c->currency_scale == 1.0) ? round4_fast(final_metric_keep) : final_metric_keep;
     out->final_iboost = round4_fast(final_iboost_kwh);
     out->final_carbon_g = round4_fast(final_carbon_g);
     for (int32_t car_n = 0; car_n < PK_MAX_CARS; car_n++) {
