@@ -133,8 +133,11 @@ class LoadMLComponent(ComponentBase):
             self.log("Error: ML Component: ml_load_sensor must be configured when ml_enable is True")
             self.ml_enable = False
 
-        # Initialise predictor
-        self._init_predictor()
+        # Do not load the persisted ML model if forecasting is disabled.
+        # A disabled component's run() returns immediately, so loading the
+        # model only consumes memory that the planning kernel can use.
+        if self.ml_enable:
+            self._init_predictor()
 
     def _init_predictor(self):
         """Initialise or reinitialise the predictor."""
