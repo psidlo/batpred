@@ -66,6 +66,7 @@ def test_load_ml(my_predbat=None):
         ("component_run_data_merge", _test_component_run_data_merge, "LoadMLComponent run() data fetch, save and merge across two runs"),
         ("component_retrain_interval", _test_component_retrain_interval, "YAML retraining interval, boundaries, startup and prediction cadence"),
         ("component_init_predictor_last_train_time", _test_component_init_predictor_sets_last_train_time, "LoadMLComponent _init_predictor sets last_train_time from embedded training_timestamp"),
+        ("component_disabled_skips_predictor", _test_component_disabled_skips_predictor, "Disabled ML does not instantiate or load a predictor"),
         ("nan_inf_robustness", _test_nan_inf_robustness, "LoadPredictor handles NaN, Inf, and None across input channels without NaN loss"),
         ("database_zero_preservation", _test_database_zero_preservation, "Database save/load preserves 0.0 values across roundtrip"),
         ("database_iboost_prep_mismatch", _test_database_iboost_prep_mismatch, "Database is discarded when its iBoost subtraction differs from the current config"),
@@ -3276,6 +3277,36 @@ def _test_car_subtraction_direct():
     print("PASS")
 
     print("  All car_subtraction direct tests passed!")
+
+
+
+def _test_component_disabled_skips_predictor():
+    """Disabled ML must not allocate predictor weights or read a saved model."""
+    import asyncio
+    from unittest.mock import patch
+    from load_ml_component import LoadMLComponent
+    from mock_base import MockBase
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # A valid-looking saved model file must not be opened when ML is disabled.
+        with open(os.path.join(tmpdir, "predbat_ml_model.npz"), "wb") as handle:
+            handle.write(b"unused model")
+
+        base = MockBase(config_root=tmpdir, load_ml_enable=False)
+        with patch("load_ml_component.LoadPredictor", side_effect=AssertionError("disabled ML instantiated a predictor")):
+            component = LoadMLComponent(base, load_ml_enable=False)
+            assert component.predictor is None
+            assert component.ml_enable is False
+            assert component._get_predictions(base.now_utc, base.midnight_utc) == {}
+            assert asyncio.run(component.run(seconds=0, first=True)) is True
+
+        # An enabled component still builds its predictor and preserves
+        # model-loading behaviour; its cached file can be read as before.
+        enabled = MockBase(config_root=None, load_ml_enable=True, load_today=["sensor.load_today"])
+        with patch("load_ml_component.LoadPredictor") as predictor_type:
+            active = LoadMLComponent(enabled, load_ml_enable=True)
+            predictor_type.assert_called_once()
+            assert active.predictor is predictor_type.return_value
 
 
 def _test_component_init_predictor_sets_last_train_time():
