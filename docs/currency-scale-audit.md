@@ -62,8 +62,9 @@ and persisted money amounts alone. A currency symbol is not a calibration.
 
 ## Regression coverage
 
-- Keep the upstream `currency_scale` test group unchanged for PR #6156
-  (bounds, default preservation, invalid configurations).
+- Keep the upstream `currency_scale` test group as the baseline for PR #6156
+  (bounds, default preservation, invalid configurations), extending only its
+  saved-value range assertion for the fork's non-destructive persistence rule.
 - `currency_calibration`: fixed-money and negative-price boundaries, real
   planner equivalence, score thresholds, scenario comparison, kernel parity,
   manual SoC floors, and numeric rounding at scales 1, 8.5, 29.
