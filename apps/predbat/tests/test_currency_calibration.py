@@ -44,7 +44,7 @@ def configured_predbat(scale=None, overrides=None):
         base.load_user_config()
     # Model equivalent manually chosen settings for the cross-scale scenario tests.
     # This is test input normalisation, NOT a change to production defaults.
-    if scale not in (None, 1, 1.0):
+    if isinstance(scale, (int, float)) and not isinstance(scale, bool) and math.isfinite(scale) and scale >= 1 and scale != 1:
         # Only scenario tests explicitly opt into equivalent manually supplied
         # monetary settings. No runtime/default conversion occurs in Predbat.
         for item in base.CONFIG_ITEMS:
