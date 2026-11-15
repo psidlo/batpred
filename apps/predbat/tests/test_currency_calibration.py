@@ -33,18 +33,20 @@ def configured_predbat(scale=None, overrides=None):
         if item.get("unit") in MONETARY_UNITS:
             base.args.pop(item["name"], None)
             item.pop("value", None)
-    base.args["expert_mode"] = True
     base.args.pop("currency_scale", None)
     if scale is not None:
         base.args["currency_scale"] = scale
     base.args.update(overrides or {})
     # Upstream PR #6156 applies its ranges at reset(), not at every reload.
     base.reset()
+    base.args["expert_mode"] = True
     with patch.object(base, "load_previous_value_from_ha", return_value=None):
         base.load_user_config()
     # Model equivalent manually chosen settings for the cross-scale scenario tests.
     # This is test input normalisation, NOT a change to production defaults.
     if scale not in (None, 1, 1.0):
+        # Only scenario tests explicitly opt into equivalent manually supplied
+        # monetary settings. No runtime/default conversion occurs in Predbat.
         for item in base.CONFIG_ITEMS:
             if item.get("type") == "input_number" and item.get("unit") in MONETARY_UNITS and item["name"] not in (overrides or {}):
                 value = item.get("value")
@@ -85,7 +87,7 @@ def test_currency_configuration():
 
 def test_currency_prices_and_sorting():
     """Keep incoming prices intact and order large/negative prices without collisions."""
-    for scale in (1.0, 29.0, 0.25):
+    for scale in (1.0, 8.5, 29.0):
         base = configured_predbat(scale)
         reset_rates(base, 363.894, 0)
         base.set_rate_thresholds()
@@ -245,7 +247,7 @@ def test_currency_decision_boundaries():
                 value = (100 - gain if charge == [0, 2] else 100) * scale
                 return (value,) * 8
 
-            # Since v9.7.10 swap candidates are queued via launch_run_prediction_metric
+            # Since v9.7.11 swap candidates are queued via launch_run_prediction_metric
             # and consumed through get_run_prediction_metric, rather than by calling
             # run_prediction_metric synchronously.
             with (
@@ -428,7 +430,7 @@ def test_currency_manual_soc_target_floor():
                 assert prediction.run_prediction([], [], [], [], PV_SCENARIO_NOMINAL, 60, cache=False)[8] == 0
 
 
-def test_currency_v9710_kernel_rounding():
+def test_currency_v9711_kernel_rounding():
     """Non-unit scales must not round native monetary results to fixed 4dp first."""
     from prediction_kernel import PkResult, kernel_result_tuple
 
@@ -436,7 +438,7 @@ def test_currency_v9710_kernel_rounding():
         pred = SimpleNamespace(currency_scale=scale, car_charging_soc_next=[], num_cars=0, iboost_enable=False, iboost_next=0)
         result = PkResult()
         raw_money = 0.000051 * scale
-        # C++ keeps its v9.7.10 fast-4dp behaviour at 1; at non-unit
+        # C++ keeps its v9.7.11 fast-4dp behaviour at 1; at non-unit
         # scales ABI 12 returns both monetary fields unrounded.
         result.final_metric = round(raw_money, 4) if scale == 1 else raw_money
         result.metric_keep = result.final_metric
@@ -462,7 +464,7 @@ def run_currency_calibration_tests(my_predbat):
     test_currency_v960_boundaries()
     test_currency_saved_scenarios()
     test_currency_manual_soc_target_floor()
-    test_currency_v9710_kernel_rounding()
+    test_currency_v9711_kernel_rounding()
     return False
 
 
