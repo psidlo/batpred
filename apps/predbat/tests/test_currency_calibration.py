@@ -19,7 +19,7 @@ MONETARY_UNITS = frozenset(CURRENCY_UNITS)
 from prediction import Prediction
 from prediction_kernel import build_static_context_arrays
 from tests.test_export_commitment import setup_single_export_window
-from tests.test_infra import clear_manual_times, reset_inverter, reset_rates, update_rates_import, update_rates_export
+from tests.test_infra import TestHAInterface, clear_manual_times, reset_inverter, reset_rates, update_rates_import, update_rates_export
 from tests.test_kernel_parity import apply_random_scenario, dual_run, make_step_data, make_windows
 from utils import pack_export_limit
 
@@ -39,6 +39,10 @@ def configured_predbat(scale=None, overrides=None):
     base.args.update(overrides or {})
     # Upstream PR #6156 applies its ranges at reset(), not at every reload.
     base.reset()
+    base.update_time(print=False)
+    base.ha_interface = TestHAInterface()
+    base.ha_interface.base = base
+    base.ha_interface.history_enable = False
     base.args["expert_mode"] = True
     with patch.object(base, "load_previous_value_from_ha", return_value=None):
         base.load_user_config()
