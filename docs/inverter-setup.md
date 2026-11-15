@@ -4013,7 +4013,7 @@ The default options passed in are:
 
 - device_id - as defined in `apps.yaml` by **device_id**
 - target_soc - The SoC to charge to
-- power - The charge power to use
+- power - The charge power selected for this control cycle in watts; a script-controlled inverter without a rate entity receives the rate held by Predbat.
 - charge_start_time - Start time for the charge
 - charge_end_time - End time for the charge
 
@@ -4037,7 +4037,7 @@ The default options passed in are:
 
 - device_id - as defined in `apps.yaml` by **device_id**
 - target_soc - The SoC to discharge to
-- power - The discharge power to use
+- power - The discharge power selected for this control cycle in watts; service templates with `{power}` receive the new rate after rate updates.
 
 #### discharge_freeze_service
 
