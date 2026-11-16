@@ -1,0 +1,25 @@
+name: PR 6221 documentation review checks
+on:
+  push:
+    branches:
+      - ci/review-6221-docs-gcoan
+permissions:
+  contents: read
+jobs:
+  documentation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: d2423708fc2feb0c0e298425e153d60173909455
+          persist-credentials: false
+      - name: Verify tested PR commit
+        run: test "$(git rev-parse HEAD)" = "d2423708fc2feb0c0e298425e153d60173909455"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Install upstream hooks
+        run: python -m pip install pre-commit
+      - name: Run all upstream pre-commit hooks (including markdownlint and cspell)
+        run: pre-commit run --all-files
