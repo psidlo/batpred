@@ -316,35 +316,38 @@ Sets your symbol to use for your main currency e.g. £, € or $ and for 1/100th
 
 ### currency_scale
 
-Optional, default 1. Predbat plans in your minor currency unit (pence, cents, øre, haléř...), and the ranges of its money settings,
-such as **input_number.predbat_metric_min_improvement_export**, were chosen in pence.
-If your minor unit is worth much less than a penny the top of those ranges can be too small to be a useful threshold,
-e.g. the 50 limit on the metric_min_improvement settings is only 0.50 CZK.
+Optional, default 1. Predbat calculates costs using your currency's minor unit (such as pence, cents, øre or haléř).
+The ranges and steps of monetary settings were originally chosen for pence. If your minor unit is worth substantially
+less than a penny, the usual limits may be too low to set useful thresholds.
 
-Set `currency_scale` to roughly how many of your minor units make one penny, and the minimum and maximum of every setting measured in your minor unit
-(the `p`, `p/kWh` and `p/kg` settings) is multiplied by it when Predbat starts, e.g. for Czech koruna (about 29 haléř to the penny):
+Set `currency_scale` to roughly the number of your minor units equivalent in value to one penny.
+For example, for Czech koruna, a factor of about 29 allows larger amounts in haléř:
 
 ```yaml
   currency_scale: 29
 ```
 
-The built-in defaults and already configured values are **not** multiplied; users can still adjust
-their chosen thresholds to suit their preferences. Values below 1 are ignored rather than shrinking
-the configuration ranges.
+Predbat uses this setting when it starts to adjust:
 
-#### Planner calibration and compatibility
+- The minimum, maximum and step of monetary Home Assistant controls, such as
+  `input_number.predbat_metric_min_improvement_export`.
+- Internal monetary preferences and thresholds used to choose charge and export windows,
+  value stored energy, compare prices and group similar tariff periods.
+- Monetary rounding precision in planning and prediction, including the native prediction kernel.
 
-In addition to monetary setting ranges, `currency_scale` calibrates slider steps, built-in
-planner thresholds and preferences, price grouping and monetary rounding in both Python and the
-native prediction kernel. Input tariffs and explicit monetary settings remain in local minor units:
-a CZK price of 363.894 haléř/kWh remains 363.894 haléř/kWh; this is **not** FX conversion.
+**This is a calibration factor, not a currency conversion.** Tariff prices, manually entered amounts,
+previously saved configuration values and built-in setting defaults are not multiplied or converted.
+For example, an import tariff entered as 363.894 haléř/kWh remains 363.894 haléř/kWh.
+You may still need to review your saved monetary thresholds to suit your local prices.
 
-With `currency_scale: 1`, the usual input limits and clamping remain unchanged. At larger
-scales, if an already stored monetary value exceeds the calibrated slider range, Predbat retains
-it and extends the displayed range with a warning; non-monetary settings still clamp normally.
-Review saved monetary thresholds when enabling a different scale, as their economic meaning is
-not converted automatically. See [currency calibration details](currency-scale-audit.md) for
-implementation boundaries and test coverage.
+With `currency_scale: 1`, Predbat retains the original limits, clamping and monetary calculations.
+When a larger scale is configured, an existing monetary value outside the new control range is preserved:
+Predbat widens the displayed range and logs a warning instead of silently changing the amount.
+Non-monetary settings keep their normal limits. Physical power, energy and battery state-of-charge
+settings are not scaled, and currency symbols and provider-specific currency handling are unchanged.
+
+Use a finite factor of at least 1. Invalid factors and values below 1 fall back to 1.
+Restart Predbat after changing `currency_scale`, and review your monetary settings afterwards.
 
 ### template
 

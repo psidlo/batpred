@@ -31,7 +31,6 @@ nav:
   - 'Predbat development':
     - todo-list.md
     - developing.md
-    - currency-scale-audit.md
     - random-scenarios.md
     - rest_api.md
     - plugins.md

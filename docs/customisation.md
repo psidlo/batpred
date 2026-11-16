@@ -1,9 +1,5 @@
 # Customisation
 
-Predbat's optional `currency_scale` setting calibrates monetary input ranges, slider steps and
-internal optimisation thresholds for currencies with small minor units. Input tariffs, stored
-values and built-in defaults are not converted. See [currency calibration](currency-scale-audit.md).
-
 This document describes the Predbat configuration items in Home Assistant that you can modify to customise Predbat to fit your needs.
 
 All of these settings are entities that can be configured directly in Home Assistant (unlike the '[apps.yaml](apps-yaml.md)' configuration items that have to be edited with a file editor).
