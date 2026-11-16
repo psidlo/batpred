@@ -332,6 +332,23 @@ Only the ranges change. The defaults and the values you have already set stay as
 to what suits you - multiplying the defaults by the same factor is a good starting point.
 Values below 1 are ignored, as they would narrow the ranges and cut back settings you have already made.
 
+#### Extended calibration in the psidlo fork (v9.7.11)
+
+This branch builds **on** the official `currency_scale` implementation
+introduced in Predbat v9.7.11 (upstream [PR #6156](https://github.com/springfall2008/batpred/pull/6156)).
+The upstream implementation continues to own validation and monetary input
+ranges. The fork additionally calibrates input-number **steps**, built-in
+planner preferences and thresholds, price-grouping bands and optimisation
+rounding in Python and the native kernel. The existing built-in defaults
+and user-set values are **not multiplied** when the scale is enabled.
+
+For CZK haléř, `currency_scale: 29` is a planner calibration factor, not an
+FX conversion: a price provided as 363.894 haléř/kWh remains 363.894 haléř/kWh.
+After updating from an older fork, review saved settings manually; a default
+that was previously created in haléře remains as saved, and is not rewritten.
+See the [v9.7.11 calibration audit](currency-scale-audit.md) for implementation
+boundaries and test coverage.
+
 ### template
 
 Initially set to `true`, this is used to stop Predbat from operating until you have finished configuring your `apps.yaml`.

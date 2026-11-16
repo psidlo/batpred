@@ -1,0 +1,64 @@
+name: currency calibration PR validation
+on:
+  push:
+    branches:
+      - feature/currency-scale-upstream-pr
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: currency-calibration-pr-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  validate-and-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Build local ABI 13 kernel
+        run: bash apps/predbat/build_kernel.sh
+      - name: Run calibration and upstream regression tests
+        env:
+          PREDBAT_KERNEL_REQUIRED: "1"
+        run: |
+          cd coverage
+          python ../apps/predbat/unit_test.py --test currency_scale --test currency_calibration --test currency_debug_plan --test kernel_parity --test manual_soc --test manual_soc_max --test compute_metric --test execute
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: 0.16.0
+      - name: Cross-build production kernels for all six platforms
+        run: bash apps/predbat/build_kernel_cross.sh
+      - name: Verify cross-built x86_64 kernel
+        run: |
+          cd coverage
+          python ../apps/predbat/verify_kernel_binary.py ../apps/predbat/prediction_kernel_lib_x86_64.so
+      - name: Upload rebuilt production kernels
+        uses: actions/upload-artifact@v4
+        with:
+          name: predbat-currency-abi13-kernels
+          path: apps/predbat/prediction_kernel_lib_*.so
+          if-no-files-found: error
+          retention-days: 14
+      - name: Commit verified cross-built kernels to PR branch
+        if: github.ref == 'refs/heads/feature/currency-scale-upstream-pr'
+        run: |
+          git add apps/predbat/prediction_kernel_lib_*.so
+          if git diff --cached --quiet; then
+            echo "Kernel binaries already match the source."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "chore(kernel): rebuild ABI 13 currency kernels [skip ci]"
+            git push origin HEAD:feature/currency-scale-upstream-pr
+          fi

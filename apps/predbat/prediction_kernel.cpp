@@ -62,7 +62,7 @@
 // ABI 11: the ten scalar PkResult fields from final_metric to final_carbon_g are returned already
 // rounded to 4dp (round4_fast), and Python no longer rounds them. The layout is unchanged, but a binary
 // from before this returns them unrounded, so it must be refused rather than read.
-#define PK_ABI_VERSION 12
+#define PK_ABI_VERSION 13
 #define PK_CURVE_WIDTH 103 // a rate grid curve row: 101 SoC percents, the rated rate, then the absolute temperature cap
 // Parity 14: the explicit (mode, target, power) fields replace the packed double throughout the hot
 // loop (see the ABI 6 note); the floor a target exports to now reads the target field, matching
@@ -81,7 +81,8 @@
 // Parity 20: below a manual_soc or alert floor the keep penalty's import rate, and above a manual_soc_max
 // ceiling its export rate, is at least PK_KEEP_TARGET_MIN_RATE, so a target in a free or negative-price
 // slot still costs something to miss (#5162).
-#define PK_PARITY_REVISION 23
+// Parity 24: calibrated monetary floor and currency-relative prediction rounding.
+#define PK_PARITY_REVISION 24
 #define PK_MAX_CARS 8
 #define PK_RUN_EVERY 5 // const.py RUN_EVERY
 #define PK_KEEP_TARGET_MIN_RATE 1.0 // const.py KEEP_TARGET_MIN_RATE
@@ -299,6 +300,7 @@ struct PkContext {
     int32_t iboost_on_export;
     int32_t has_rate_gas;
     int32_t has_iboost_plan;
+    double currency_scale;  // ABI 13: same economic calibration as Python Prediction
 };
 
 // Per-scenario inputs; field order MUST match the ctypes Structure in prediction_kernel.py.
@@ -1463,7 +1465,7 @@ static int32_t pk_run_one(const ContextStore *store, const PkScenario *s, PkResu
         // Metric keep - prediction.py:1100-1102
         if (best_soc_keep > 0 && soc <= best_soc_keep) {
             // A manual or alert floor still costs something to miss at a free or negative rate (#5162)
-            const double keep_rate = (alert_keep > 0) ? std::max(import_rate, PK_KEEP_TARGET_MIN_RATE) : import_rate;
+            const double keep_rate = (alert_keep > 0) ? std::max(import_rate, PK_KEEP_TARGET_MIN_RATE * c->currency_scale) : import_rate;
             metric_keep += (best_soc_keep - soc) * keep_rate * keep_minute_scaling * step / 60.0;
         }
 
@@ -1471,7 +1473,7 @@ static int32_t pk_run_one(const ContextStore *store, const PkScenario *s, PkResu
         // of held - mirrors prediction.py's best_soc_max block right after the floor.
         if (best_soc_max >= 0 && soc >= best_soc_max) {
             // Likewise a ceiling still costs something to break at a free or negative export rate (#5162)
-            metric_keep += (soc - best_soc_max) * std::max(export_rate, PK_KEEP_TARGET_MIN_RATE) * keep_minute_scaling * step / 60.0;
+            metric_keep += (soc - best_soc_max) * std::max(export_rate, PK_KEEP_TARGET_MIN_RATE * c->currency_scale) * keep_minute_scaling * step / 60.0;
         }
 
         // Import/export accounting - prediction.py:1104-1143
@@ -1543,14 +1545,14 @@ static int32_t pk_run_one(const ContextStore *store, const PkScenario *s, PkResu
     }
 
     // Returned rounded to 4dp (see round4_fast and ABI 11), so the Python side copies them as they are
-    out->final_metric = round4_fast(final_metric);
+    out->final_metric = (c->currency_scale == 1.0) ? round4_fast(final_metric) : final_metric;
     out->import_kwh_battery = round4_fast(final_import_kwh_battery);
     out->import_kwh_house = round4_fast(final_import_kwh_house);
     out->export_kwh = round4_fast(final_export_kwh);
     out->soc_min = round4_fast(soc_min);
     out->final_soc = round4_fast(final_soc);
     out->battery_cycle = round4_fast(final_battery_cycle);
-    out->metric_keep = round4_fast(final_metric_keep);
+    out->metric_keep = (c->currency_scale == 1.0) ? round4_fast(final_metric_keep) : final_metric_keep;
     out->final_iboost = round4_fast(final_iboost_kwh);
     out->final_carbon_g = round4_fast(final_carbon_g);
     for (int32_t car_n = 0; car_n < PK_MAX_CARS; car_n++) {

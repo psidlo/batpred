@@ -36,6 +36,7 @@ from tests.test_kernel_parity import run_kernel_parity_tests, run_model_kernel_t
 from tests.test_prediction_batch import run_prediction_batch_tests
 from tests.test_kernel_static_cache import run_kernel_static_cache_tests
 from tests.test_execute import run_execute_tests
+from tests.test_inverter_rate_no_entity import run_inverter_rate_no_entity_tests, run_inverter_rate_no_entity_execute_tests, run_inverter_rate_no_entity_execute_10kw_tests
 from tests.test_execute_multi_inverter_status import test_multi_inverter_status
 from tests.test_load_car_energy import test_load_car_energy_warns_when_configured_entity_has_no_data
 from tests.test_predheat import (
@@ -166,6 +167,7 @@ from tests.test_web_apps_edit import run_web_apps_edit_tests, run_web_apps_filte
 from tests.test_web_curves_chart import run_web_curves_chart_tests
 from tests.test_web_chart_currency import test_rates_chart_series_names_use_currency_symbol, test_pv_chart_forecast_history_is_uncalibrated
 from tests.test_currency_scale import run_currency_scale_tests
+from tests.test_currency_calibration import run_currency_calibration_tests, test_currency_debug_plan
 from tests.test_web_debug_history_routes import test_web_debug_history_routes
 from tests.test_agent_tools import run_agent_tools_tests
 from tests.test_chat_store import run_chat_store_tests
@@ -594,6 +596,9 @@ def main():
         ("kernel_parity", run_kernel_parity_tests, "C++ prediction kernel vs Python engine parity tests", False),
         ("prediction_batch", run_prediction_batch_tests, "Batched prediction fan-out tests", False),
         ("inverter", run_inverter_tests, "Inverter tests", False),
+        ("inverter_rate_no_entity", run_inverter_rate_no_entity_tests, "Power rate readback without entity", False),
+        ("inverter_rate_no_entity_execute", run_inverter_rate_no_entity_execute_tests, "Same-cycle service power handoff", False),
+        ("inverter_rate_no_entity_execute_10kw", run_inverter_rate_no_entity_execute_10kw_tests, "Low-power charge after export", False),
         ("execute", run_execute_tests, "Execute tests", False),
         ("multi_inverter_status", test_multi_inverter_status, "Multi-inverter headline status resolution tests (#4446)", False),
         ("load_car_energy", test_load_car_energy_warns_when_configured_entity_has_no_data, "car_charging_energy configured-but-empty warning tests (#4458 follow-up)", False),
@@ -717,6 +722,8 @@ def main():
         ("web_curves_chart", run_web_curves_chart_tests, "Curves chart page: curve sensor status, SoC and temperature curve charts", False),
         ("web_chart_currency", test_rates_chart_series_names_use_currency_symbol, "Rates chart series names follow currency_symbols tests", False),
         ("currency_scale", run_currency_scale_tests, "apps.yaml currency_scale widens money setting ranges tests (#6155)", False),
+        ("currency_calibration", run_currency_calibration_tests, "Extended planner/price calibration based on v9.7.11 currency_scale", False),
+        ("currency_debug_plan", test_currency_debug_plan, "Extended full-plan currency-scale replay", False),
         ("web_chart_pv_forecast", test_pv_chart_forecast_history_is_uncalibrated, "PV chart plots the uncalibrated forecast history tests", False),
         ("web_debug_history_routes", test_web_debug_history_routes, "Debug-history web routes tests (#4438 review items 4, 6, 21)", False),
         ("agent_tools", run_agent_tools_tests, "Shared agent tool layer and schema projection tests", False),

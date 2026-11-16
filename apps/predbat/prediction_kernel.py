@@ -22,6 +22,8 @@ rejected at load time rather than producing divergent results.
 
 import array
 import ctypes
+from currency import round_currency
+
 import struct
 import os
 import platform
@@ -32,8 +34,8 @@ from const import PREDICT_STEP, PREDBAT_MAX_CARS, EXPORT_MODE_TARGET, FULL_EXPOR
 from utils import in_car_slot, in_iboost_slot
 
 # Expected ABI/parity revisions of the shared library (see prediction_kernel.cpp)
-KERNEL_ABI_VERSION = 12
-KERNEL_PARITY_REVISION = 23
+KERNEL_ABI_VERSION = 13
+KERNEL_PARITY_REVISION = 24
 
 # Maximum number of cars supported by the kernel (PK_MAX_CARS in prediction_kernel.cpp)
 KERNEL_MAX_CARS = PREDBAT_MAX_CARS
@@ -138,6 +140,7 @@ class PkContext(ctypes.Structure):
         ("iboost_on_export", ctypes.c_int32),
         ("has_rate_gas", ctypes.c_int32),
         ("has_iboost_plan", ctypes.c_int32),
+        ("currency_scale", ctypes.c_double),
     ]
 
 
@@ -748,7 +751,7 @@ def build_static_context_arrays(pred, n_steps, minutes_now, num_cars):
         discharge_curve_row.append(step_rows[1])
         carbon.append(pred.carbon_intensity.get(minute, 0) if pred.carbon_intensity else 0)
         # Gas rate pre-scaled by iboost_gas_scale - mirrors prediction.py:719/725
-        gas_rate.append((pred.rate_gas.get(minute_absolute, 99) * pred.iboost_gas_scale) if pred.rate_gas else 0)
+        gas_rate.append((pred.rate_gas.get(minute_absolute, 99 * getattr(pred, "currency_scale", 1.0)) * pred.iboost_gas_scale) if pred.rate_gas else 0)
         iboost_plan_load.append(in_iboost_slot(minute_absolute, pred.iboost_plan) if pred.iboost_plan else 0)
         if num_cars > 0:
             car_load, car_rate_slot = in_car_slot(minute_absolute, num_cars, pred.car_charging_slots)
@@ -898,6 +901,7 @@ def create_kernel_context(pred, static_cache=None):
         ctx.iboost_on_export = 1 if pred.iboost_on_export else 0
         ctx.has_rate_gas = 1 if pred.rate_gas else 0
         ctx.has_iboost_plan = 1 if pred.iboost_plan else 0
+        ctx.currency_scale = getattr(pred, "currency_scale", 1.0)
 
         handle = lib.pk_context_create(ctypes.byref(ctx))
         if handle:
@@ -939,9 +943,10 @@ def kernel_result_tuple(pred, result, predict_soc):
             car_charging_soc_next[car_n] = car_soc_next[car_n]
 
     iboost_next = result.iboost_next if pred.iboost_enable else pred.iboost_next
+    currency_scale = getattr(pred, "currency_scale", 1.0)
 
     return (
-        result.final_metric,
+        round_currency(result.final_metric, currency_scale) if currency_scale != 1.0 else result.final_metric,
         result.import_kwh_battery,
         result.import_kwh_house,
         result.export_kwh,
@@ -949,7 +954,7 @@ def kernel_result_tuple(pred, result, predict_soc):
         result.final_soc,
         result.soc_min_minute,
         result.battery_cycle,
-        result.metric_keep,
+        round_currency(result.metric_keep, currency_scale) if currency_scale != 1.0 else result.metric_keep,
         result.final_iboost,
         result.final_carbon_g,
         predict_soc,
