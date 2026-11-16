@@ -1,0 +1,48 @@
+name: PR 6221 final validation
+on:
+  push:
+    branches:
+      - ci/review-6221-final-validation
+permissions:
+  contents: read
+jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 5867a83403f20fbd8c9ca463dd3678d268ab4f20
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Install pre-commit
+        run: python -m pip install pre-commit
+      - name: Validate all files with upstream hooks
+        run: pre-commit run --all-files
+  targeted-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 5867a83403f20fbd8c9ca463dd3678d268ab4f20
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - name: Install requirements
+        run: python -m pip install -r requirements.txt
+      - name: Compile source
+        run: python -m compileall -q apps/predbat
+      - name: Build native kernel
+        run: bash apps/predbat/build_kernel.sh
+      - name: Run requested and related regressions
+        env:
+          PREDBAT_KERNEL_REQUIRED: '1'
+        run: |
+          cd coverage
+          python ../apps/predbat/unit_test.py --test currency_scale --test currency_calibration --test currency_debug_plan --test kernel_parity --test manual_soc --test manual_soc_max --test compute_metric --test execute
