@@ -1,10 +1,8 @@
 # Customisation
 
-This fork extends the built-in Predbat v9.7.11 `currency_scale` from upstream
-[PR #6156](https://github.com/springfall2008/batpred/pull/6156).
-Upstream controls monetary setting ranges; the extension calibrates slider steps
-and internal optimisation heuristics while leaving persisted amounts and built-in
-defaults untouched. See the [currency audit](currency-scale-audit.md).
+Predbat's optional `currency_scale` setting calibrates monetary input ranges, slider steps and
+internal optimisation thresholds for currencies with small minor units. Input tariffs, stored
+values and built-in defaults are not converted. See [currency calibration](currency-scale-audit.md).
 
 This document describes the Predbat configuration items in Home Assistant that you can modify to customise Predbat to fit your needs.
 

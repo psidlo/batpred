@@ -1544,7 +1544,8 @@ static int32_t pk_run_one(const ContextStore *store, const PkScenario *s, PkResu
         }
     }
 
-    // Returned rounded to 4dp (see round4_fast and ABI 11), so the Python side copies them as they are
+    // Most fields are pre-rounded to 4dp. At non-unit currency_scale, final_metric and metric_keep
+    // remain unrounded until Python applies round_currency() to avoid losing fine monetary boundaries.
     out->final_metric = (c->currency_scale == 1.0) ? round4_fast(final_metric) : final_metric;
     out->import_kwh_battery = round4_fast(final_import_kwh_battery);
     out->import_kwh_house = round4_fast(final_import_kwh_house);

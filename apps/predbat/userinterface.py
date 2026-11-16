@@ -1356,7 +1356,7 @@ class UserInterface:
             ha_value = None
 
             if not enabled:
-                if item.get("unit") not in CURRENCY_UNITS:
+                if self.currency_scale == 1.0 or item.get("unit") not in CURRENCY_UNITS:
                     item["value"] = None
                 else:
                     item.setdefault("value", None)
@@ -1407,8 +1407,8 @@ class UserInterface:
                     # of, say, 30 passes straight through unclamped).
                     item_min = item.get("min", None)
                     item_max = item.get("max", None)
-                    if item.get("unit") in CURRENCY_UNITS:
-                        # A scale change must never destroy an explicit/HA/persisted value.
+                    if self.currency_scale != 1.0 and item.get("unit") in CURRENCY_UNITS:
+                        # Preserve stored monetary values beyond calibrated limits only for scaled installs.
                         # Widen the advertised slider for this value, with a visible warning.
                         if (item_min is not None and ha_value < item_min) or (item_max is not None and ha_value > item_max):
                             self.record_status("Warn: Preserving monetary config {}={} outside calibrated range [{}, {}]; extending range".format(name, ha_value, item_min, item_max), had_errors=True)

@@ -1,13 +1,10 @@
 """Currency calibration regressions using the native HA fixture and real engines."""
 
 import copy
-import json
 import math
 import random
-import tempfile
 import time
 from contextlib import ExitStack
-from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -15,7 +12,6 @@ from config import CONFIG_ITEMS, CURRENCY_UNITS
 from const import EXPORT_MODE_IDLE, EXPORT_MODE_TARGET, PV_SCENARIO_NOMINAL, PREDBAT_MAX_CARS
 from currency import round_currency
 
-MONETARY_UNITS = frozenset(CURRENCY_UNITS)
 from prediction import Prediction
 from prediction_kernel import build_static_context_arrays
 from tests.test_export_commitment import setup_single_export_window
@@ -23,16 +19,17 @@ from tests.test_infra import TestHAInterface, clear_manual_times, reset_inverter
 from tests.test_kernel_parity import apply_random_scenario, dual_run, make_step_data, make_windows
 from utils import pack_export_limit
 
+MONETARY_UNITS = frozenset(CURRENCY_UNITS)
+
 
 def configured_predbat(scale=None, overrides=None):
-    """Use create_predbat and model an installation without monetary HA history."""
+    """Use an isolated HA fixture with no stored monetary values and explicit overrides."""
     from unit_test import create_predbat
 
     base = create_predbat()
     for item in base.CONFIG_ITEMS:
         if item.get("unit") in MONETARY_UNITS:
             base.args.pop(item["name"], None)
-            item.pop("value", None)
     base.args.pop("currency_scale", None)
     if scale is not None:
         base.args["currency_scale"] = scale
@@ -88,6 +85,23 @@ def test_currency_configuration():
     explicit = configured_predbat(29, {"metric_min_improvement_plan": 8000})
     assert explicit.config_index["metric_min_improvement_plan"]["value"] == 8000
     assert explicit.config_index["metric_min_improvement_plan"]["max"] >= 8000
+
+
+def test_currency_value_range_compatibility():
+    """The default scale keeps the original clamp; calibrated installs retain saved outliers."""
+    unscaled = configured_predbat(1, {"metric_battery_cycle": 500})
+    assert unscaled.config_index["metric_battery_cycle"]["value"] == 50
+    assert unscaled.config_index["metric_battery_cycle"]["max"] == 50
+
+    invalid = configured_predbat("nan", {"metric_battery_cycle": 500})
+    assert invalid.currency_scale == 1.0
+    assert invalid.config_index["metric_battery_cycle"]["value"] == 50
+    assert invalid.config_index["metric_battery_cycle"]["max"] == 50
+
+    scaled = configured_predbat(29, {"metric_battery_cycle": 2000})
+    assert scaled.config_index["metric_battery_cycle"]["value"] == 2000
+    assert scaled.config_index["metric_battery_cycle"]["max"] == 2000
+
 
 def test_currency_prices_and_sorting():
     """Keep incoming prices intact and order large/negative prices without collisions."""
@@ -459,6 +473,7 @@ def run_currency_calibration_tests(my_predbat):
     """Run calibration tests through Predbat's TEST_REGISTRY contract."""
     del my_predbat
     test_currency_configuration()
+    test_currency_value_range_compatibility()
     test_currency_prices_and_sorting()
     test_currency_decision_boundaries()
     test_currency_planner_equivalence()

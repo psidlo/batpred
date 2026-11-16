@@ -328,26 +328,23 @@ Set `currency_scale` to roughly how many of your minor units make one penny, and
   currency_scale: 29
 ```
 
-Only the ranges change. The defaults and the values you have already set stay as they are, so you still need to raise the thresholds yourself
-to what suits you - multiplying the defaults by the same factor is a good starting point.
-Values below 1 are ignored, as they would narrow the ranges and cut back settings you have already made.
+The built-in defaults and already configured values are **not** multiplied; users can still adjust
+their chosen thresholds to suit their preferences. Values below 1 are ignored rather than shrinking
+the configuration ranges.
 
-#### Extended calibration in the psidlo fork (v9.7.11)
+#### Planner calibration and compatibility
 
-This branch builds **on** the official `currency_scale` implementation
-introduced in Predbat v9.7.11 (upstream [PR #6156](https://github.com/springfall2008/batpred/pull/6156)).
-The upstream implementation continues to own validation and monetary input
-ranges. The fork additionally calibrates input-number **steps**, built-in
-planner preferences and thresholds, price-grouping bands and optimisation
-rounding in Python and the native kernel. The existing built-in defaults
-and user-set values are **not multiplied** when the scale is enabled.
+In addition to monetary setting ranges, `currency_scale` calibrates slider steps, built-in
+planner thresholds and preferences, price grouping and monetary rounding in both Python and the
+native prediction kernel. Input tariffs and explicit monetary settings remain in local minor units:
+a CZK price of 363.894 haléř/kWh remains 363.894 haléř/kWh; this is **not** FX conversion.
 
-For CZK haléř, `currency_scale: 29` is a planner calibration factor, not an
-FX conversion: a price provided as 363.894 haléř/kWh remains 363.894 haléř/kWh.
-After updating from an older fork, review saved settings manually; a default
-that was previously created in haléře remains as saved, and is not rewritten.
-See the [v9.7.11 calibration audit](currency-scale-audit.md) for implementation
-boundaries and test coverage.
+With `currency_scale: 1`, the usual input limits and clamping remain unchanged. At larger
+scales, if an already stored monetary value exceeds the calibrated slider range, Predbat retains
+it and extends the displayed range with a warning; non-monetary settings still clamp normally.
+Review saved monetary thresholds when enabling a different scale, as their economic meaning is
+not converted automatically. See [currency calibration details](currency-scale-audit.md) for
+implementation boundaries and test coverage.
 
 ### template
 

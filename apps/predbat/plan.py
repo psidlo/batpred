@@ -3536,12 +3536,6 @@ class Plan:
 
         return best_export, best_start, best_metric, best_cost, best_soc_min, best_soc_min_minute, best_keep, best_cycle, best_carbon, best_import, best_metric_plan
 
-    def window_sort_func(self, window):
-        """
-        Helper sort index function
-        """
-        return float(window["key"])
-
     def window_sort_func_start(self, window):
         """
         Helper sort index function

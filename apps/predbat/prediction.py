@@ -100,7 +100,7 @@ class Prediction(PredictionBatch):
         car_charging_slots_model() so a car charging now outside its plan is modelled too.
         """
         if base:
-            self.currency_scale = getattr(base, "currency_scale", 1.0)
+            self.currency_scale = base.currency_scale
             self.minutes_now = base.minutes_now
             self.log = base.log
             self.time_abs_str = base.time_abs_str

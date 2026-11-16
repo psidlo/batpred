@@ -370,11 +370,12 @@ class Compare:
         # rates is checked against them as they are, so only this tariff's override can make it differ.
         import_match = rate_import_match if (import_replaced and rate_import_match) else rate_import_base
         export_match = rate_export_match if (export_replaced and rate_export_match) else rate_export_base
+        scale = pb.currency_scale
         for minute in range(pb.minutes_now, pb.forecast_minutes + pb.minutes_now):
-            if round_currency(pb.rate_import.get(minute, 0), getattr(pb, "currency_scale", 1.0), 2) != round_currency(import_match.get(minute, 0), getattr(pb, "currency_scale", 1.0), 2):
+            if round_currency(pb.rate_import.get(minute, 0), scale, 2) != round_currency(import_match.get(minute, 0), scale, 2):
                 self.log("Compare rate import is different, minute {} changed from {} to {}".format(minute, import_match.get(minute, 0), pb.rate_import.get(minute, 0)))
                 return False
-            if round_currency(pb.rate_export.get(minute, 0), getattr(pb, "currency_scale", 1.0), 2) != round_currency(export_match.get(minute, 0), getattr(pb, "currency_scale", 1.0), 2):
+            if round_currency(pb.rate_export.get(minute, 0), scale, 2) != round_currency(export_match.get(minute, 0), scale, 2):
                 self.log("Compare rate export is different, minute {} changed from {} to {}".format(minute, export_match.get(minute, 0), pb.rate_export.get(minute, 0)))
                 return False
         return True
@@ -386,7 +387,7 @@ class Compare:
         """
         minutes_now = self.pb.minutes_now
         overlap = [minute for minute in rates if minute >= minutes_now and minute in live_rates]
-        scale = getattr(self.pb, "currency_scale", 1.0)
+        scale = self.pb.currency_scale
         return bool(overlap) and all(round_currency(rates[minute], scale, 2) == round_currency(live_rates[minute], scale, 2) for minute in overlap)
 
     def apply_hardware_overrides(self, tariff, my_predbat):
