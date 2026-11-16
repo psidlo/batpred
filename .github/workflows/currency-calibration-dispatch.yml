@@ -1,9 +1,6 @@
 name: Currency calibration upstream PR validation
 run-name: Validate currency PR branch (ABI 13)
 on:
-  push:
-    branches: [main]
-    paths: [.github/workflows/currency-calibration-dispatch.yml]
   workflow_dispatch:
 permissions:
   contents: write
@@ -65,14 +62,3 @@ jobs:
           name: currency-calibration-abi13-six-platform-kernels
           path: apps/predbat/prediction_kernel_lib_*.so
           if-no-files-found: error
-      - name: Commit verified binaries to PR branch
-        run: |
-          git add apps/predbat/prediction_kernel_lib_*.so
-          if git diff --cached --quiet; then
-            echo 'All checked-in kernels already match.'
-          else
-            git config user.name 'github-actions[bot]'
-            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-            git commit -m 'chore(kernel): rebuild ABI 13 calibrated kernels [skip ci]'
-            git push origin HEAD:feature/currency-scale-upstream-pr
-          fi
