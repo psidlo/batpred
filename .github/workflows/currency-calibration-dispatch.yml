@@ -1,0 +1,77 @@
+name: Currency calibration upstream PR validation
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/currency-calibration-dispatch.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: currency-calibration-dispatch
+  cancel-in-progress: false
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 85
+    steps:
+      - name: Checkout dedicated PR branch (not the fork default branch)
+        uses: actions/checkout@v4
+        with:
+          ref: feature/currency-scale-upstream-pr
+          persist-credentials: true
+      - name: Show exact tested revision
+        run: git log -1 --format='%h %s' && git status --short
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Check Python syntax
+        run: python -m compileall -q apps/predbat
+      - name: Build local native ABI 13 kernel
+        run: bash apps/predbat/build_kernel.sh
+      - name: Run targeted calibration, parity and planning tests
+        env:
+          PREDBAT_KERNEL_REQUIRED: '1'
+        run: |
+          cd coverage
+          python ../apps/predbat/unit_test.py --test currency_scale --test currency_calibration --test currency_debug_plan --test kernel_parity --test manual_soc --test manual_soc_max --test compute_metric --test execute
+      - name: Run upstream quick regression suite
+        env:
+          PREDBAT_KERNEL_REQUIRED: '1'
+        run: |
+          cd coverage
+          python ../apps/predbat/unit_test.py --quick
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: '0.16.0'
+      - name: Cross-build six supported prediction kernels
+        run: bash apps/predbat/build_kernel_cross.sh
+      - name: Verify all production binaries exist
+        run: |
+          test "$(find apps/predbat -maxdepth 1 -name 'prediction_kernel_lib_*.so' | wc -l)" -ge 6
+      - name: Run parity tests against cross-built x86_64 kernel
+        run: |
+          cd coverage
+          python ../apps/predbat/verify_kernel_binary.py ../apps/predbat/prediction_kernel_lib_x86_64.so
+      - name: Publish verified kernel binaries as Actions artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: currency-calibration-abi13-six-platform-kernels
+          path: apps/predbat/prediction_kernel_lib_*.so
+          if-no-files-found: error
+      - name: Commit verified binaries to PR branch
+        run: |
+          git add apps/predbat/prediction_kernel_lib_*.so
+          if git diff --cached --quiet; then
+            echo 'All checked-in kernels already match.'
+          else
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git commit -m 'chore(kernel): rebuild ABI 13 calibrated kernels [skip ci]'
+            git push origin HEAD:feature/currency-scale-upstream-pr
+          fi
