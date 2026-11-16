@@ -13,7 +13,7 @@ from datetime import timedelta
 from tests.test_infra import reset_inverter
 from const import EXPORT_MODE_TARGET, EXPORT_MODE_FREEZE, MINUTE_WATT
 from utils import pack_export_limit
-from utils import calc_percent_limit
+from utils import calc_percent_limit, services_send_power
 from control_monitor import ControlMonitor, MODE_CHARGING, MODE_EXPORTING, GRACE_S
 
 
@@ -532,12 +532,14 @@ def run_execute_test(
         if assert_status in ["Freeze exporting"] and inverter.immediate_discharge_soc_freeze is not True:
             print("ERROR: Inverter {} Immediate export SOC freeze should be True got {}".format(inverter.id, inverter.immediate_discharge_soc_freeze))
             failed = True
-        # A service-driven inverter is sent {power} in the same cycle the rate is planned, so it must be
-        # the rate this cycle writes - not the previous cycle's (#5252)
-        if inverter.immediate_charge_power is not None and inverter.immediate_charge_power != inverter.charge_rate:
+        # Only {power}-carrying services are deferred until after the rate write (#5373).
+        # Other scenarios intentionally make immediate calls before the rate update;
+        # this test double records those too, but they do not send a power value.
+        # Keep the same-cycle regression strict for each configured service direction.
+        if services_send_power(my_predbat.args, "charge", inverter.id) and inverter.immediate_charge_power is not None and inverter.immediate_charge_power != inverter.charge_rate:
             print("ERROR: Inverter {} charge service power {} should match this cycle's charge rate {}".format(inverter.id, inverter.immediate_charge_power, inverter.charge_rate))
             failed = True
-        if inverter.immediate_discharge_power is not None and inverter.immediate_discharge_power != inverter.discharge_rate:
+        if services_send_power(my_predbat.args, "discharge", inverter.id) and inverter.immediate_discharge_power is not None and inverter.immediate_discharge_power != inverter.discharge_rate:
             print("ERROR: Inverter {} export service power {} should match this cycle's discharge rate {}".format(inverter.id, inverter.immediate_discharge_power, inverter.discharge_rate))
             failed = True
 
