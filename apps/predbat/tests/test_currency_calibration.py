@@ -396,7 +396,6 @@ def test_currency_saved_scenarios():
                 assert all(math.isclose(value, reference[0][minute], abs_tol=1e-12) for minute, value in metrics.items()), (save, scale, metrics, reference[0])
 
 
-
 def test_currency_manual_soc_target_floor():
     """Backport #6140 with its 1 minor-unit keep floor calibrated for manual SoC boundaries."""
     for ceiling in (False, True):
@@ -426,10 +425,7 @@ def test_currency_manual_soc_target_floor():
                 penalty.append(actual / scale)
                 # This exercises the same manual-SoC scenario in native C++, including the
                 # single/batch-shared result shaping. Requires a freshly rebuilt ABI 13 binary.
-                assert not dual_run(
-                    "currency_manual_soc_{}_{}_{}".format("max" if ceiling else "min", scale, rate),
-                    base, pv, pv, load, load, [], [], [], [], PV_SCENARIO_NOMINAL, 60
-                )
+                assert not dual_run("currency_manual_soc_{}_{}_{}".format("max" if ceiling else "min", scale, rate), base, pv, pv, load, load, [], [], [], [], PV_SCENARIO_NOMINAL, 60)
             assert penalty[0] > 0, (scale, ceiling, penalty)
             assert abs(penalty[0] - penalty[1]) < 0.00025, (scale, ceiling, penalty)
             assert abs(penalty[2] - penalty[0] * 10) < 0.00025, (scale, ceiling, penalty)

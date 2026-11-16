@@ -5,6 +5,7 @@ monetary HA settings. This module only rounds numerical optimisation outputs in
 calibrated minor units. It NEVER converts tariff inputs or user-selected values.
 """
 
+
 def round_currency(value, scale=1.0, digits=4):
     """Round a monetary result at a scale-invariant algorithmic precision.
 
