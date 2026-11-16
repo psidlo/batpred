@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - feature/currency-scale-upstream-pr
+      - feature/currency-scale-v9.8.0-solax
   workflow_dispatch:
 permissions:
   contents: write
@@ -35,7 +36,7 @@ jobs:
           PREDBAT_KERNEL_REQUIRED: "1"
         run: |
           cd coverage
-          python ../apps/predbat/unit_test.py --test currency_scale --test currency_calibration --test currency_debug_plan --test kernel_parity --test manual_soc --test manual_soc_max --test compute_metric --test execute
+          python ../apps/predbat/unit_test.py --test currency_scale --test currency_calibration --test currency_debug_plan --test kernel_parity --test manual_soc --test manual_soc_max --test compute_metric --test execute --test inverter_rate_no_entity --test inverter_rate_no_entity_execute --test inverter_rate_no_entity_execute_10kw
       - uses: mlugg/setup-zig@v2
         with:
           version: 0.16.0
