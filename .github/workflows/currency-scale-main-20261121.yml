@@ -37,9 +37,9 @@ jobs:
           cd coverage
           python ../apps/predbat/unit_test.py --test currency_scale --test currency_calibration --test currency_debug_plan --test kernel_parity --test manual_soc --test manual_soc_max --test compute_metric --test execute
       - name: Upstream quick regression suite
-        run: ./run_all --quick
+        run: cd coverage && ./run_all --quick
       - name: Upstream pre-commit checks
-        run: ./run_pre_commit
+        run: cd coverage && ./run_pre_commit
       - uses: mlugg/setup-zig@v2
         with:
           version: 0.16.0
