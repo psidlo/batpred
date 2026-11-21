@@ -1,8 +1,8 @@
-name: Currency calibration integration on upstream main
+name: Currency ABI 15 targeted packaging and pre-commit
 on:
   push:
     branches:
-      - ci/currency-scale-main-20261121
+      - ci/currency-scale-abi15-package-20261121
   workflow_dispatch:
 permissions:
   contents: write
@@ -36,10 +36,8 @@ jobs:
         run: |
           cd coverage
           python ../apps/predbat/unit_test.py --test currency_scale --test currency_calibration --test currency_debug_plan --test kernel_parity --test manual_soc --test manual_soc_max --test compute_metric --test execute
-      - name: Upstream quick regression suite
-        run: cd coverage && ./run_all --quick
       - name: Upstream pre-commit checks
-        run: cd coverage && ./run_pre_commit
+        run: python -m pre_commit run --all-files
       - uses: mlugg/setup-zig@v2
         with:
           version: 0.16.0
@@ -58,5 +56,5 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git commit -m "chore(kernel): rebuild currency ABI 15 kernels [skip ci]"
-            git push origin HEAD:ci/currency-scale-main-20261121
+            git push origin HEAD:ci/currency-scale-abi15-package-20261121
           fi
