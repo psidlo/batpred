@@ -1,3 +1,4 @@
+# cspell:ignore compileall
 name: Currency ABI 15 targeted packaging and pre-commit
 on:
   push:
