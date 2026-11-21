@@ -1,0 +1,45 @@
+name: Predbat v9.9.0 currency and service-power validation
+on:
+  push:
+    branches:
+      - feature/currency-scale-v9.9.0-solax
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: predba-v990-integration-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  integration-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Check Python syntax
+        run: python -m compileall -q apps/predbat
+      - name: Build native kernel for local validation
+        run: bash apps/predbat/build_kernel.sh
+      - name: Currency and Solax regression tests
+        env:
+          PREDBAT_KERNEL_REQUIRED: "1"
+        run: |
+          cd coverage
+          python ../apps/predbat/unit_test.py --test currency_scale --test currency_calibration --test currency_debug_plan --test kernel_parity --test manual_soc --test manual_soc_max --test compute_metric --test execute --test inverter_rate_no_entity --test inverter_rate_no_entity_execute --test inverter_rate_no_entity_execute_10kw
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: 0.16.0
+      - name: Cross-build all production kernels
+        run: bash apps/predbat/build_kernel_cross.sh
+      - name: Verify x86_64 production kernel
+        run: |
+          cd coverage
+          python ../apps/predbat/verify_kernel_binary.py ../apps/predbat/prediction_kernel_lib_x86_64.so
