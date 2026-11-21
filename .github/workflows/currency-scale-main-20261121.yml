@@ -1,0 +1,62 @@
+name: Currency calibration integration on upstream main
+on:
+  push:
+    branches:
+      - ci/currency-scale-main-20261121
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: currency-main-port-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  test-and-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Syntax check
+        run: python -m compileall -q apps/predbat
+      - name: Build local native kernel ABI 15
+        run: bash apps/predbat/build_kernel.sh
+      - name: Currency and kernel targeted tests
+        env:
+          PREDBAT_KERNEL_REQUIRED: "1"
+        run: |
+          cd coverage
+          python ../apps/predbat/unit_test.py --test currency_scale --test currency_calibration --test currency_debug_plan --test kernel_parity --test manual_soc --test manual_soc_max --test compute_metric --test execute
+      - name: Upstream quick regression suite
+        run: ./run_all --quick
+      - name: Upstream pre-commit checks
+        run: ./run_pre_commit
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: 0.16.0
+      - name: Build native kernels for all six platforms
+        run: bash apps/predbat/build_kernel_cross.sh
+      - name: Verify native x86_64 kernel
+        run: |
+          cd coverage
+          python ../apps/predbat/verify_kernel_binary.py ../apps/predbat/prediction_kernel_lib_x86_64.so
+      - name: Commit verified ABI 15 kernels to test branch
+        run: |
+          git add apps/predbat/prediction_kernel_lib_*.so
+          if git diff --cached --quiet; then
+            echo "Kernel binaries already match the source."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "chore(kernel): rebuild currency ABI 15 kernels [skip ci]"
+            git push origin HEAD:ci/currency-scale-main-20261121
+          fi
